@@ -36,39 +36,6 @@ using namespace std;
 using namespace spine;
 #include <memory>
 
-template<typename T, typename... Args>
-unique_ptr<T> make_unique_test(Args&&... args) {
-	return unique_ptr<T>(new T(forward<Args>(args)...));
-}
-
-void callback (AnimationState* state, EventType type, TrackEntry* entry, Event* event) {
-	SP_UNUSED(state);
-	const String& animationName = (entry && entry->getAnimation()) ? entry->getAnimation()->getName() : String("");
-
-	switch (type) {
-		case EventType_Start:
-			printf("%d start: %s\n", entry->getTrackIndex(), animationName.buffer());
-			break;
-		case EventType_Interrupt:
-			printf("%d interrupt: %s\n", entry->getTrackIndex(), animationName.buffer());
-			break;
-		case EventType_End:
-			printf("%d end: %s\n", entry->getTrackIndex(), animationName.buffer());
-			break;
-		case EventType_Complete:
-			printf("%d complete: %s\n", entry->getTrackIndex(), animationName.buffer());
-			break;
-		case EventType_Dispose:
-			printf("%d dispose: %s\n", entry->getTrackIndex(), animationName.buffer());
-			break;
-		case EventType_Event:
-			printf("%d event: %s, %s: %d, %f, %s %f %f\n", entry->getTrackIndex(), animationName.buffer(), event->getData().getName().buffer(), event->getIntValue(), event->getFloatValue(),
-				   event->getStringValue().buffer(), event->getVolume(), event->getBalance());
-			break;
-	}
-	fflush(stdout);
-}
-
 shared_ptr<SkeletonData> readSkeletonJsonData (const String& filename, Atlas* atlas, float scale) {
 	SkeletonJson json(atlas);
 	json.setScale(scale);
@@ -91,542 +58,102 @@ shared_ptr<SkeletonData> readSkeletonBinaryData (const char* filename, Atlas* at
 	return shared_ptr<SkeletonData>(skeletonData);
 }
 
-void testcase (void func(SkeletonData* skeletonData, Atlas* atlas),
-			   const char* jsonName, const char* binaryName, const char* atlasName,
-			   float scale) {
-	SFMLTextureLoader textureLoader;
-	auto atlas = make_unique_test<Atlas>(atlasName, &textureLoader);
-
-	auto skeletonData = readSkeletonJsonData(jsonName, atlas.get(), scale);
-	func(skeletonData.get(), atlas.get());
-
-	skeletonData = readSkeletonBinaryData(binaryName, atlas.get(), scale);
-	func(skeletonData.get(), atlas.get());
-}
-
-void spineboy (SkeletonData* skeletonData, Atlas* atlas) {
+void hoshino(SkeletonData* skeletonData, Atlas* atlas, float scale) {
 	SP_UNUSED(atlas);
+	float w = skeletonData->getWidth() * scale;
+	float h = skeletonData->getHeight() * scale;
+	float x = skeletonData->getX() * scale;
+	float y = skeletonData->getY() * scale;
+	float a = floor(-w - x), b = floor(-h - y), c = ceil(-x), d = ceil(-y);
+	printf("%f %f %f %f", w, h, x, y);
 
-	SkeletonBounds bounds;
-
-	// Configure mixing.
-	AnimationStateData stateData(skeletonData);
-	stateData.setMix("walk", "jump", 0.2f);
-	stateData.setMix("jump", "run", 0.2f);
-
-	SkeletonDrawable drawable(skeletonData, &stateData);
+	SkeletonDrawable drawable(skeletonData);
 	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
+	drawable.setUsePremultipliedAlpha(false);
 
 	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setToSetupPose();
+	//skeleton->setPosition(w + x, y + h);
+	{
+		auto vec = skeletonData->getAnimations();
+		for (int i = 0; i < vec.size(); ++i) {
+			auto* anim = vec[i];
+			printf("%s\n", anim->getName().buffer());
 
-	skeleton->setPosition(320, 590);
-	skeleton->updateWorldTransform();
+			drawable.state->setAnimation(0, anim->getName(), true);
+			skeleton->updateWorldTransform();
+			drawable.update(0.0f);
 
-	Slot* headSlot = skeleton->findSlot("head");
-
-	drawable.state->setListener(callback);
-	drawable.state->addAnimation(0, "walk", true, 0);
-	drawable.state->addAnimation(0, "jump", false, 3);
-	drawable.state->addAnimation(0, "run", true, 0);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - spineboy");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		bounds.update(*skeleton, true);
-		sf::Vector2i position = sf::Mouse::getPosition(window);
-		if (bounds.containsPoint((float)position.x, (float)position.y)) {
-			headSlot->getColor().g = 0;
-			headSlot->getColor().b = 0;
-		} else {
-			headSlot->getColor().g = 1;
-			headSlot->getColor().b = 1;
+			sf::RenderTexture texture;
+			texture.create(512, 480);
+			texture.clear(sf::Color::Transparent);
+			//sf::View view = texture.getDefaultView();
+			//view.setViewport({ 0.262, 0.059, 0.5, 0.227 });
+			texture.setView(sf::View{ {a + 352, b + 64, 512, 480} });
+			texture.draw(drawable);
+			texture.display();
+			sf::Texture tex = texture.getTexture();
+			sf::Image image = tex.copyToImage();
+			image.saveToFile(std::string("out/hoshino_") + std::string(anim->getName().buffer()) + std::string(".png"));
 		}
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
+		printf("\n");
 	}
-}
-
-void ikDemo (SkeletonData* skeletonData, Atlas* atlas) {
-    SP_UNUSED(atlas);
-
-    SkeletonBounds bounds;
-
-    // Create the SkeletonDrawable and position it
-    AnimationStateData stateData(skeletonData);
-    SkeletonDrawable drawable(skeletonData, &stateData);
-    drawable.timeScale = 1;
-    drawable.setUsePremultipliedAlpha(true);
-    drawable.skeleton->setPosition(320, 590);
-
-    // Queue the "walk" animation on the first track.
-    drawable.state->setAnimation(0, "walk", true);
-
-    // Queue the "aim" animation on a higher track.
-    // It consists of a single frame that positions
-    // the back arm and gun such that they point at
-    // the "crosshair" bone. By setting this
-    // animation on a higher track, it overrides
-    // any changes to the back arm and gun made
-    // by the walk animation, allowing us to
-    // mix the two. The mouse position following
-    // is performed in the render() method below.
-    drawable.state->setAnimation(1, "aim", true);
-
-    sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - IK Demo");
-    window.setFramerateLimit(60);
-    sf::Event event;
-    sf::Clock deltaClock;
-
-    while (window.isOpen()) {
-        while (window.pollEvent(event))
-            if (event.type == sf::Event::Closed) window.close();
-
-        float delta = deltaClock.getElapsedTime().asSeconds();
-        deltaClock.restart();
-
-        // Update and apply the animations to the skeleton,
-        // then calculate the world transforms of every bone.
-        // This is needed so we can call Bone#worldToLocal()
-        // later.
-        drawable.update(delta);
-
-        // Position the "crosshair" bone at the mouse
-        // location. We do this before calling
-        // skeleton.updateWorldTransform() below, so
-        // our change is incorporated before the IK
-        // constraint is applied.
-        //
-        // When setting the crosshair bone position
-        // to the mouse position, we need to translate
-        // from "mouse space" to "local bone space". Note that the local
-        // bone space is calculated using the bone's parent
-        // worldToLocal() function!
-        sf::Vector2i mouseCoords = sf::Mouse::getPosition(window);
-        float boneCoordsX = 0, boneCoordsY = 0;
-        Bone* crosshair = drawable.skeleton->findBone("crosshair"); // Should be cached.
-        crosshair->getParent()->worldToLocal(mouseCoords.x, mouseCoords.y, boneCoordsX, boneCoordsY);
-        crosshair->setX(boneCoordsX);
-        crosshair->setY(boneCoordsY);
-        crosshair->setAppliedValid(false);
-
-        // Calculate final world transform with the
-        // crosshair bone set to the mouse cursor
-        // position.
-        drawable.skeleton->updateWorldTransform();
-
-        window.clear();
-        window.draw(drawable);
-        window.display();
-    }
-}
-
-void goblins (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-
-	Skin* skin = skeleton->getData()->findSkin("goblingirl");
-	Skin copy("test");
-
-	copy.copySkin(skin);
-
-	skeleton->setSkin(&copy);
-	skeleton->setSlotsToSetupPose();
-
-	skeleton->setPosition(320, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "walk", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - goblins");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void raptor (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	PowInterpolation pow2(2);
-	PowOutInterpolation powOut2(2);
-	SwirlVertexEffect effect(400, powOut2);
-	effect.setCenterY(-200);
-	drawable.vertexEffect = &effect;
-
-	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setPosition(320, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "walk", true);
-	drawable.state->addAnimation(1, "gun-grab", false, 2);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - raptor");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	float swirlTime = 0;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		swirlTime += delta;
-		float percent = MathUtil::fmod(swirlTime, 2);
-		if (percent > 1) percent = 1 - (percent - 1);
-		effect.setAngle(pow2.interpolate(-60.0f, 60.0f, percent));
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void tank (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setPosition(500, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "drive", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - tank");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-		drawable.update(delta);
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void vine (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setPosition(320, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "grow", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - vine");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void stretchyman (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-
-	skeleton->setPosition(100, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "sneak", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - Streatchyman");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void stretchymanStrechyIk (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable* drawable = new SkeletonDrawable(skeletonData);
-	drawable->timeScale = 1;
-	drawable->setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable->skeleton;
-
-	skeleton->setPosition(100, 590);
-	skeleton->updateWorldTransform();
-
-	drawable->state->setAnimation(0, "sneak", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - Streatchyman Stretchy IK");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event))
-			if (event.type == sf::Event::Closed) window.close();
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable->update(delta);
-
-		window.clear();
-		window.draw(*drawable);
-		window.display();
-	}
-
-	delete drawable;
-}
-
-void coin (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setPosition(320, 320);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "animation", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - coin");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
-
-	while (window.isOpen()) {
-		while (window.pollEvent(event)) {
-			if (event.type == sf::Event::Closed) window.close();
+	{
+		auto vec = skeletonData->getSkins();
+		for (int i = 0; i < vec.size(); ++i) {
+			auto* skin = vec[i];
+			printf("%s\n", skin->getName().buffer());
 		}
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
+		printf("\n");
 	}
-}
 
-void owl (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
+	drawable.state->setAnimation(0, "17", true);
 
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
+	sf::RenderTexture texture;
+	texture.create(c - a, d - b);
+	texture.clear(sf::Color::Transparent);
+	//sf::View view = texture.getDefaultView();
+	//view.setViewport({ 0.262, 0.059, 0.5, 0.227 });
+	texture.setView(sf::View{ {a, b, c - a, d - b} });
+	texture.draw(drawable);
+	texture.display();
+	sf::Texture tex = texture.getTexture();
+	sf::Image image = tex.copyToImage();
+	image.saveToFile("out/test5.png");
 
-	Skeleton* skeleton = drawable.skeleton;
-	skeleton->setPosition(320, 400);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "idle", true);
-
-	TrackEntry* left = drawable.state->setAnimation(1, "left", true);
-	TrackEntry* right = drawable.state->setAnimation(2, "right", true);
-	TrackEntry* up = drawable.state->setAnimation(3, "up", true);
-	TrackEntry* down = drawable.state->setAnimation(4, "down", true);
-
-	left->setAlpha(0);
-	left->setMixBlend(MixBlend_Add);
-	right->setAlpha(0);
-	right->setMixBlend(MixBlend_Add);
-	up->setAlpha(0);
-	up->setMixBlend(MixBlend_Add);
-	down->setAlpha(0);
-	down->setMixBlend(MixBlend_Add);
-
-	// drawable.state->setAnimation(5, "blink", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - owl");
+	sf::RenderWindow window(sf::VideoMode(c - a, d - b), "Spine SFML - Hoshino");
 	window.setFramerateLimit(60);
 	sf::Event event;
 	sf::Clock deltaClock;
-	while (window.isOpen()) {
-		while (window.pollEvent(event)) {
-			if (event.type == sf::Event::Closed) window.close();
-			if (event.type == sf::Event::MouseMoved) {
-				float x = event.mouseMove.x / 640.0f;
-				left->setAlpha((MathUtil::max(x, 0.5f) - 0.5f) * 2);
-				right->setAlpha((0.5f - MathUtil::min(x, 0.5f)) * 2);
+	window.setView(sf::View{ {a, b, c - a, d - b} });
 
-				float y = event.mouseMove.y / 640.0f;
-				down->setAlpha((MathUtil::max(y, 0.5f) - 0.5f) * 2);
-				up->setAlpha((0.5f - MathUtil::min(y, 0.5f)) * 2);
-			}
-		}
-
-		float delta = deltaClock.getElapsedTime().asSeconds();
-		deltaClock.restart();
-
-		drawable.update(delta);
-
-		window.clear();
-		window.draw(drawable);
-		window.display();
-	}
-}
-
-void mixAndMatch (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	SkeletonDrawable drawable(skeletonData);
-	drawable.timeScale = 1;
-	drawable.setUsePremultipliedAlpha(true);
-
-	Skeleton* skeleton = drawable.skeleton;
-
-	Skin skin("mix-and-match");
-	skin.addSkin(skeletonData->findSkin("skin-base"));
-	skin.addSkin(skeletonData->findSkin("nose/short"));
-	skin.addSkin(skeletonData->findSkin("eyelids/girly"));
-	skin.addSkin(skeletonData->findSkin("eyes/violet"));
-	skin.addSkin(skeletonData->findSkin("hair/brown"));
-	skin.addSkin(skeletonData->findSkin("clothes/hoodie-orange"));
-	skin.addSkin(skeletonData->findSkin("legs/pants-jeans"));
-	skin.addSkin(skeletonData->findSkin("accessories/bag"));
-	skin.addSkin(skeletonData->findSkin("accessories/hat-red-yellow"));
-
-	skeleton->setSkin(&skin);
-	skeleton->setSlotsToSetupPose();
-
-	skeleton->setPosition(320, 590);
-	skeleton->updateWorldTransform();
-
-	drawable.state->setAnimation(0, "dance", true);
-
-	sf::RenderWindow window(sf::VideoMode(640, 640), "Spine SFML - goblins");
-	window.setFramerateLimit(60);
-	sf::Event event;
-	sf::Clock deltaClock;
 	while (window.isOpen()) {
 		while (window.pollEvent(event))
 			if (event.type == sf::Event::Closed) window.close();
 
 		float delta = deltaClock.getElapsedTime().asSeconds();
 		deltaClock.restart();
-
 		drawable.update(delta);
-
-		window.clear();
+		window.clear(sf::Color::Transparent);
 		window.draw(drawable);
 		window.display();
 	}
 }
 
-/**
- * Used for debugging purposes during runtime development
- */
-void test (SkeletonData* skeletonData, Atlas* atlas) {
-	SP_UNUSED(atlas);
-
-	Skeleton skeleton(skeletonData);
-	AnimationStateData animationStateData(skeletonData);
-	AnimationState animationState(&animationStateData);
-	animationState.setAnimation(0, "idle", true);
-
-	float d = 3;
-	for (int i = 0; i < 1; i++) {
-		animationState.update(d);
-		animationState.apply(skeleton);
-		skeleton.updateWorldTransform();
-		d += 0.1f;
-	}
-}
-
-DebugExtension dbgExtension(SpineExtension::getInstance());
+//DebugExtension dbgExtension(SpineExtension::getInstance());
 
 int main () {
-	SpineExtension::setInstance(&dbgExtension);
+	//SpineExtension::setInstance(&dbgExtension);
 
-    testcase(ikDemo, "data/spineboy-pro.json", "data/spineboy-pro.skel", "data/spineboy-pma.atlas", 0.6f);
-	testcase(mixAndMatch, "data/mix-and-match-pro.json", "data/mix-and-match-pro.skel", "data/mix-and-match-pma.atlas", 0.5f);
-	testcase(goblins, "data/goblins-pro.json", "data/goblins-pro.skel", "data/goblins-pma.atlas", 1.4f);
-	testcase(owl, "data/owl-pro.json", "data/owl-pro.skel", "data/owl-pma.atlas", 0.5f);
-	testcase(spineboy, "data/spineboy-pro.json", "data/spineboy-pro.skel", "data/spineboy-pma.atlas", 0.6f);
-	testcase(raptor, "data/raptor-pro.json", "data/raptor-pro.skel", "data/raptor-pma.atlas", 0.5f);
-	testcase(coin, "data/coin-pro.json", "data/coin-pro.skel", "data/coin-pma.atlas", 0.5f);
-	testcase(vine, "data/vine-pro.json", "data/vine-pro.skel", "data/vine-pma.atlas", 0.5f);
-	testcase(tank, "data/tank-pro.json", "data/tank-pro.skel", "data/tank-pma.atlas", 0.2f);
-	testcase(raptor, "data/raptor-pro.json", "data/raptor-pro.skel", "data/raptor-pma.atlas", 0.5f);
-	testcase(stretchyman, "data/stretchyman-pro.json", "data/stretchyman-pro.skel", "data/stretchyman-pma.atlas", 0.6f);
+	const char* binaryName = "data/hoshino_spr.skel";
+	const char* atlasName = "data/hoshino_spr.atlas";
+	float scale = 1.0f;
 
-	dbgExtension.reportLeaks();
+	SFMLTextureLoader textureLoader;
+	auto atlas = make_unique<Atlas>(atlasName, &textureLoader);
+
+	auto skeletonData = readSkeletonBinaryData(binaryName, atlas.get(), scale);
+	hoshino(skeletonData.get(), atlas.get(), scale);
+
+	//dbgExtension.reportLeaks();
 	return 0;
 }
