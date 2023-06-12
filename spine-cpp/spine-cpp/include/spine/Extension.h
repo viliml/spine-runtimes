@@ -119,7 +119,7 @@ protected:
 // the default extension for that engine. It is called the first time
 // SpineExtension::getInstance() is called, when no instance has been set
 // yet.
-extern SpineExtension *getDefaultExtension();
+[[maybe_unused]] extern SpineExtension *getDefaultExtension();
 }
 
 #endif /* Spine_Extension_h */

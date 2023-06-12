@@ -3,7 +3,13 @@ project(spine_unit_test)
 
 set(CMAKE_INSTALL_PREFIX "./")
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set (CMAKE_CXX_FLAGS "-Wall -Wextra -Wnon-virtual-dtor -pedantic -std=c++03 -fno-rtti -DKANJI_MEMTRACE -DUSE_CPP11_MUTEX")
+
+if(MSVC)
+	message("MSCV detected")
+else()
+	set (CMAKE_C_FLAGS "-Wall -Wextra -Wnon-virtual-dtor -pedantic -std=c++03 -fno-rtti -DKANJI_MEMTRACE -DUSE_CPP11_MUTEX")
+endif()
+
 
 
 #########################################################

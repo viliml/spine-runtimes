@@ -134,29 +134,38 @@ void RegionAttachment::computeWorldVertices(Bone &bone, float* worldVertices, si
 	float x = bone.getWorldX(), y = bone.getWorldY();
 	float a = bone.getA(), b = bone.getB(), c = bone.getC(), d = bone.getD();
 	float offsetX, offsetY;
+	//printf("%f %f %f %f\n", _x, _y, _width, _height);
+	//printf("%f %f %f %f %f %f\n", _regionOffsetX, _regionOffsetY, _regionWidth, _regionHeight, _regionOriginalWidth, _regionOriginalHeight);
+	//printf("%f %f %f %f %f %f\n", x, y, a, b, c, d);
 
 	offsetX = _vertexOffset[BRX];
 	offsetY = _vertexOffset[BRY];
+	//printf("%f %f\n", offsetX, offsetY);
 	worldVertices[offset] = offsetX * a + offsetY * b + x; // br
 	worldVertices[offset + 1] = offsetX * c + offsetY * d + y;
 	offset += stride;
 
 	offsetX = _vertexOffset[BLX];
 	offsetY = _vertexOffset[BLY];
+	//printf("%f %f\n", offsetX, offsetY);
 	worldVertices[offset] = offsetX * a + offsetY * b + x; // bl
 	worldVertices[offset + 1] = offsetX * c + offsetY * d + y;
 	offset += stride;
 
 	offsetX = _vertexOffset[ULX];
 	offsetY = _vertexOffset[ULY];
+	//printf("%f %f\n", offsetX, offsetY);
 	worldVertices[offset] = offsetX * a + offsetY * b + x; // ul
 	worldVertices[offset + 1] = offsetX * c + offsetY * d + y;
 	offset += stride;
 
 	offsetX = _vertexOffset[URX];
 	offsetY = _vertexOffset[URY];
+	//printf("%f %f\n", offsetX, offsetY);
 	worldVertices[offset] = offsetX * a + offsetY * b + x; // ur
 	worldVertices[offset + 1] = offsetX * c + offsetY * d + y;
+
+	//printf("\n");
 }
 
 float RegionAttachment::getX() {
