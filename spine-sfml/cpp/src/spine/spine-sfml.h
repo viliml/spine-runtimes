@@ -31,11 +31,7 @@
 #define SPINE_SFML_H_
 
 #include <spine/spine.h>
-#include <SFML/Graphics/Vertex.hpp>
-#include <SFML/Graphics/VertexArray.hpp>
-#include <SFML/Graphics/Texture.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/RenderStates.hpp>
+#include <SFML/Graphics.hpp>
 
 
 namespace spine {
@@ -67,6 +63,10 @@ private:
 	mutable Vector<unsigned short> quadIndices;
 	mutable SkeletonClipping clipper;
 	mutable bool usePremultipliedAlpha;
+	//mutable sf::Shader normalShader;
+	//mutable sf::Shader additiveShader;
+	//mutable sf::Shader multiplyShader;
+	//mutable sf::Shader screenShader;
 };
 
 class SFMLTextureLoader : public TextureLoader {

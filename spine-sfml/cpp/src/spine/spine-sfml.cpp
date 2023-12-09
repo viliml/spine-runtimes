@@ -40,12 +40,14 @@ using namespace sf;
 sf::BlendMode normal = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add, sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
 sf::BlendMode additive = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::One, sf::BlendMode::Add, sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add);
 sf::BlendMode multiply = sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add, sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
-sf::BlendMode screen = sf::BlendMode(sf::BlendMode::SrcAlpha, sf::BlendMode::OneMinusSrcColor, sf::BlendMode::Add, sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add);
+sf::BlendMode screen = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcColor, sf::BlendMode::Add, sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add);
 
 sf::BlendMode normalPma = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha);
 sf::BlendMode additivePma = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::One, sf::BlendMode::Add, sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add);
 sf::BlendMode multiplyPma = sf::BlendMode(sf::BlendMode::DstColor, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add, sf::BlendMode::One, sf::BlendMode::OneMinusSrcAlpha, sf::BlendMode::Add);
 sf::BlendMode screenPma = sf::BlendMode(sf::BlendMode::One, sf::BlendMode::OneMinusSrcColor, sf::BlendMode::Add, sf::BlendMode::Zero, sf::BlendMode::One, sf::BlendMode::Add);
+
+sf::BlendMode noop = sf::BlendMode(sf::BlendMode::Zero, sf::BlendMode::One);
 
 namespace spine {
 
@@ -102,6 +104,15 @@ namespace spine {
 			Attachment* attachment = slot.getAttachment();
 			if (!attachment) continue;
 
+			//if (true || (120 < i && i < 130)) {
+			//	printf("%s %d %s\n", attachment->getRTTI().getClassName(), slot.getData().getBlendMode(), attachment->getName().buffer());
+			//	//continue;
+			//}
+
+			//if (slot.getData().getBlendMode() == BlendMode_Additive) {
+			//	continue;
+			//}
+
 			// Early out if the slot color is 0 or the bone is not active
 			if (slot.getColor().a == 0 || !slot.getBone().isActive()) {
 				clipper.clipEnd(slot);
@@ -146,6 +157,8 @@ namespace spine {
 					continue;
 				}
 
+				//printf("%f %f %f %f\n", attachmentColor->r, attachmentColor->g, attachmentColor->b, attachmentColor->a);
+
 				worldVertices.setSize(mesh->getWorldVerticesLength(), 0);
 				texture = (Texture*)((AtlasRegion*)mesh->getRendererObject())->page->getRendererObject();
 				mesh->computeWorldVertices(slot, 0, mesh->getWorldVerticesLength(), worldVertices, 0, 2);
@@ -163,10 +176,21 @@ namespace spine {
 			}
 			else continue;
 
-			Uint8 r = static_cast<Uint8>(skeleton->getColor().r * slot.getColor().r * attachmentColor->r * 255);
-			Uint8 g = static_cast<Uint8>(skeleton->getColor().g * slot.getColor().g * attachmentColor->g * 255);
-			Uint8 b = static_cast<Uint8>(skeleton->getColor().b * slot.getColor().b * attachmentColor->b * 255);
-			Uint8 a = static_cast<Uint8>(skeleton->getColor().a * slot.getColor().a * attachmentColor->a * 255);
+			Uint8 r, g, b, a;
+			if (!usePremultipliedAlpha) {
+				r = static_cast<Uint8>(skeleton->getColor().r * slot.getColor().r * attachmentColor->r * 255);
+				g = static_cast<Uint8>(skeleton->getColor().g * slot.getColor().g * attachmentColor->g * 255);
+				b = static_cast<Uint8>(skeleton->getColor().b * slot.getColor().b * attachmentColor->b * 255);
+				a = static_cast<Uint8>(skeleton->getColor().a * slot.getColor().a * attachmentColor->a * 255);
+			}
+			else {
+				float alpha = skeleton->getColor().a * slot.getColor().a * attachmentColor->a;
+				r = static_cast<Uint8>(skeleton->getColor().r * slot.getColor().r * attachmentColor->r * alpha * 255);
+				g = static_cast<Uint8>(skeleton->getColor().g * slot.getColor().g * attachmentColor->g * alpha * 255);
+				b = static_cast<Uint8>(skeleton->getColor().b * slot.getColor().b * attachmentColor->b * alpha * 255);
+				a = static_cast<Uint8>(alpha * 255);
+			}
+
 			vertex.color.r = r;
 			vertex.color.g = g;
 			vertex.color.b = b;
@@ -184,37 +208,49 @@ namespace spine {
 				case BlendMode_Normal:
 					//printf("normal\n");
 					blend = normal;
+					//shader = &normalShader;
 					break;
 				case BlendMode_Additive:
 					//printf("additive\n");
 					blend = additive;
+					//shader = &additiveShader;
 					break;
 				case BlendMode_Multiply:
 					blend = multiply;
+					//shader = &multiplyShader;
 					break;
 				case BlendMode_Screen:
 					blend = screen;
+					//shader = &screenShader;
 					break;
 				default:
 					blend = normal;
+					//shader = &normalShader;
 				}
 			}
 			else {
 				switch (slot.getData().getBlendMode()) {
 				case BlendMode_Normal:
+					//printf("normal\n");
 					blend = normalPma;
+					//shader = NULL;
 					break;
 				case BlendMode_Additive:
+					//printf("additive\n");
 					blend = additivePma;
+					//shader = NULL;
 					break;
 				case BlendMode_Multiply:
 					blend = multiplyPma;
+					//shader = NULL;
 					break;
 				case BlendMode_Screen:
 					blend = screenPma;
+					//shader = NULL;
 					break;
 				default:
 					blend = normalPma;
+					//shader = NULL;
 				}
 			}
 
@@ -223,8 +259,8 @@ namespace spine {
 			if (states.blendMode != blend || states.texture != texture) {
 				target.draw(*vertexArray, states);
 				vertexArray->clear();
-				states.blendMode = blend;
 				states.texture = texture;
+				states.blendMode = blend;
 			}
 
 			if (clipper.isClipping()) {
