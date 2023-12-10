@@ -4,18 +4,3 @@
 * text=auto
 
 *.sh         text eol=lf
-
-# Unity specific
-*.mat               merge=unityyamlmerge text eol=lf
-*.anim              merge=unityyamlmerge text eol=lf
-*.unity             merge=unityyamlmerge text eol=lf
-*.prefab            merge=unityyamlmerge text eol=lf
-*.physicsMaterial2D merge=unityyamlmerge text eol=lf
-*.physicsMaterial   merge=unityyamlmerge text eol=lf
-*.asset             merge=unityyamlmerge text eol=lf
-*.meta              merge=unityyamlmerge text eol=lf
-*.controller        merge=unityyamlmerge text eol=lf
-
-# Prevent mixed line ending warnings created by Unity's code auto-updater
-*.cginc      text eol=lf
-*.shader     text eol=lf
