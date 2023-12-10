@@ -89,6 +89,10 @@ namespace spine {
 	}
 
 	void SkeletonDrawable::draw(RenderTarget& target, RenderStates states) const {
+		draw(target, states, nullptr);
+	}
+
+	void SkeletonDrawable::draw(RenderTarget& target, RenderStates states, FloatRect *bounds) const {
 		vertexArray->clear();
 		states.texture = NULL;
 
@@ -104,10 +108,10 @@ namespace spine {
 			Attachment* attachment = slot.getAttachment();
 			if (!attachment) continue;
 
-			//if (true || (120 < i && i < 130)) {
-			//	printf("%s %d %s\n", attachment->getRTTI().getClassName(), slot.getData().getBlendMode(), attachment->getName().buffer());
-			//	//continue;
-			//}
+			// if (true || (120 < i && i < 130)) {
+			// 	printf("%s %d %s\n", attachment->getRTTI().getClassName(), slot.getData().getBlendMode(), attachment->getName().buffer());
+			// 	//continue;
+			// }
 
 			//if (slot.getData().getBlendMode() == BlendMode_Additive) {
 			//	continue;
@@ -306,6 +310,23 @@ namespace spine {
 					vertex.color.b = static_cast<Uint8>(vertexColor.b * 255);
 					vertex.color.a = static_cast<Uint8>(vertexColor.a * 255);
 					vertexArray->append(vertex);
+
+					if (bounds) {
+						if (vertex.position.x < bounds->left) {
+							bounds->width += bounds->left - vertex.position.x;
+							bounds->left = vertex.position.x;
+						}
+						if (vertex.position.x - bounds->left > bounds->width) {
+							bounds->width = vertex.position.x - bounds->left;
+						}
+						if (vertex.position.y < bounds->top) {
+							bounds->height += bounds->top - vertex.position.y;
+							bounds->top = vertex.position.y;
+						}
+						if (vertex.position.y - bounds->top > bounds->height) {
+							bounds->height = vertex.position.y - bounds->top;
+						}
+					}
 				}
 			}
 			else {
@@ -317,6 +338,23 @@ namespace spine {
 					vertex.texCoords.y = (*uvs)[index + 1] * size.y;
 					vertexArray->append(vertex);
 					//printf("%f %f %f %f\n", vertex.position.x, vertex.position.y, vertex.texCoords.x, vertex.texCoords.y);
+
+					if (bounds) {
+						if (vertex.position.x < bounds->left) {
+							bounds->width += bounds->left - vertex.position.x;
+							bounds->left = vertex.position.x;
+						}
+						if (vertex.position.x - bounds->left > bounds->width) {
+							bounds->width = vertex.position.x - bounds->left;
+						}
+						if (vertex.position.y < bounds->top) {
+							bounds->height += bounds->top - vertex.position.y;
+							bounds->top = vertex.position.y;
+						}
+						if (vertex.position.y - bounds->top > bounds->height) {
+							bounds->height = vertex.position.y - bounds->top;
+						}
+					}
 				}
 			}
 			clipper.clipEnd(slot);

@@ -50,7 +50,8 @@ public:
 
 	void update(float deltaTime);
 
-	virtual void draw(sf::RenderTarget &target, sf::RenderStates states) const;
+	void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
+	void draw(sf::RenderTarget &target, sf::RenderStates states, sf::FloatRect*) const;
 
 	void setUsePremultipliedAlpha(bool usePMA) { usePremultipliedAlpha = usePMA; };
 
